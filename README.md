@@ -21,11 +21,11 @@ Set the gcloud default credentials via:
 Start the gcp_data_to_bigquery app:
    
     mvn -Pdataflow-runner compile exec:java \
- -Dexec.mainClass=com.pwc.dataflow.example.DatastoreToBigQuery  \
-   -Dexec.args="--project=acuit-zoran-wins-sandbox \
-     --inputTopic=projects/acuit-zoran-wins-sandbox/topics/test \
-     --outputTableSpec=acuit-zoran-wins-sandbox:sam.data_to_bigquery \
-     --runner=DataflowRunner"
+     -Dexec.mainClass=com.pwc.dataflow.example.DatastoreToBigQuery  \
+       -Dexec.args="--project=acuit-zoran-wins-sandbox \
+         --inputTopic=projects/acuit-zoran-wins-sandbox/topics/test \
+         --outputTableSpec=acuit-zoran-wins-sandbox:sam.data_to_bigquery \
+         --runner=DataflowRunner"
     
 
 
