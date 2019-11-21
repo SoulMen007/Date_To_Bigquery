@@ -21,8 +21,6 @@ import com.google.api.services.bigquery.model.TableSchema;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.gcp.options.GcpOptions;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
-import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.CreateDisposition;
-import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.WriteDisposition;
 import org.apache.beam.sdk.io.gcp.datastore.DatastoreIO;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
@@ -74,8 +72,15 @@ public class DatastoreToBigQuery {
         // Build the table schema for the output table.
         List<TableFieldSchema> fields = new ArrayList<TableFieldSchema>();
         fields.add(new TableFieldSchema().setName("time").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("payment").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("amount").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("provider").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("org_uid").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("item_type").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("endpoint_id").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("endpoint_type").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_id").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_orgId").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_amount").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_currency").setType("STRING"));
         TableSchema schema = new TableSchema().setFields(fields);
 
         Pipeline pipeline = Pipeline.create(options);
@@ -86,15 +91,16 @@ public class DatastoreToBigQuery {
                         DatastoreIO.v1().read()
                                 .withProjectId(options.as(GcpOptions.class).getProject())
                                 .withLiteralGqlQuery("select * from NormalizedItem where endpoint_id = '2c92c0f96e446b01016e590101ec1016' and org_uid = 'zuora_anne_001'"))
-                //.apply("EntityToString", ParDo.of(new EntityToString()))
+                .apply("EntityToString", ParDo.of(new EntityToString()))
 
-                .apply("EntityToJson", ParDo.of(new DatastoreConverters.EntityToJson()))
+                //.apply("EntityToJson", ParDo.of(new DatastoreConverters.EntityToJson()))
 
                 .apply("ConvertJsonStringToTableRow",ParDo.of(new JasonStringToTableRow()))
                 .apply(
                         "WriteBigQuery",
                         BigQueryIO.writeTableRows()
                                 .withSchema(schema)
+                                //.withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER)
                                 .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED)
                                 .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
                                 .to(options.getOutputTableSpec()));
