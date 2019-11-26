@@ -18,13 +18,13 @@ Set the gcloud default credentials via:
 
     gcloud auth application-default login
     
-Start the gcp_data_to_bigquery app:
+Start the gcp_data_to_bigquery app(Take creditMemo as an example):
    
     mvn -Pdataflow-runner compile exec:java \
-     -Dexec.mainClass=com.pwc.dataflow.example.DatastoreToBigQuery  \
+     -Dexec.mainClass=com.pwc.dataflow.example.creditMemo.DatastoreToBigQuery  \
        -Dexec.args="--project=acuit-zoran-wins-sandbox \
          --inputTopic=projects/acuit-zoran-wins-sandbox/topics/test \
-         --outputTableSpec=acuit-zoran-wins-sandbox:sam.data_to_bigquery \
+         --outputTableSpec=acuit-zoran-wins-sandbox:sam.normalizedItem_creditMemo \
          --runner=DataflowRunner"
     
 
