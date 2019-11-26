@@ -14,7 +14,7 @@
  * the License.
  */
 
-package com.pwc.dataflow.example;
+package com.pwc.dataflow.example.normalizedItem.invoice;
 
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
@@ -22,11 +22,7 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.gcp.options.GcpOptions;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.datastore.DatastoreIO;
-import org.apache.beam.sdk.options.Description;
-import org.apache.beam.sdk.options.PipelineOptions;
-import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.options.Validation;
-import org.apache.beam.sdk.options.ValueProvider;
+import org.apache.beam.sdk.options.*;
 import org.apache.beam.sdk.transforms.ParDo;
 
 import java.util.ArrayList;
@@ -71,16 +67,38 @@ public class DatastoreToBigQuery {
 
         // Build the table schema for the output table.
         List<TableFieldSchema> fields = new ArrayList<TableFieldSchema>();
-        fields.add(new TableFieldSchema().setName("time").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("create_time").setType("STRING"));
         fields.add(new TableFieldSchema().setName("provider").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("org_uid").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("updated_at").setType("STRING"));
         fields.add(new TableFieldSchema().setName("item_type").setType("STRING"));
         fields.add(new TableFieldSchema().setName("endpoint_id").setType("STRING"));
         fields.add(new TableFieldSchema().setName("endpoint_type").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("exclude_from_indexes").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("changeset").setType("STRING"));
+
         fields.add(new TableFieldSchema().setName("data_id").setType("STRING"));
         fields.add(new TableFieldSchema().setName("data_orgId").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("data_amount").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_createdAt").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_updatedAt").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_invoiceNumber").setType("STRING"));
         fields.add(new TableFieldSchema().setName("data_currency").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_dueDate").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_date").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_billingAddress").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_shipFromAddress").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_shippingAddress").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_currencyRate").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_netTotal").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_taxTotal").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_dueTotal").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_applyTaxAfterDiscount").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_discountTotal").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_outstandingTotal").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_taxExemptTotal").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_contactId").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_journalId").setType("STRING"));
+        fields.add(new TableFieldSchema().setName("data_lines").setType("STRING"));
+
         TableSchema schema = new TableSchema().setFields(fields);
 
         Pipeline pipeline = Pipeline.create(options);
@@ -90,7 +108,7 @@ public class DatastoreToBigQuery {
                         "ReadFromDatastore",
                         DatastoreIO.v1().read()
                                 .withProjectId(options.as(GcpOptions.class).getProject())
-                                .withLiteralGqlQuery("select * from NormalizedItem where endpoint_id = '2c92c0f96e446b01016e590101ec1016' and org_uid = 'zuora_anne_001'"))
+                                .withLiteralGqlQuery("select * from NormalizedItem where org_uid = 'zuora_anne_001' and endpoint_id = '2c92c0946e875a92016e90371a3d5d47'"))
                 .apply("EntityToString", ParDo.of(new EntityToString()))
 
                 //.apply("EntityToJson", ParDo.of(new DatastoreConverters.EntityToJson()))
@@ -100,7 +118,6 @@ public class DatastoreToBigQuery {
                         "WriteBigQuery",
                         BigQueryIO.writeTableRows()
                                 .withSchema(schema)
-                                //.withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_NEVER)
                                 .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED)
                                 .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
                                 .to(options.getOutputTableSpec()));
