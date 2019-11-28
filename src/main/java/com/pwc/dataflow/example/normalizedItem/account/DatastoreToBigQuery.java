@@ -17,16 +17,30 @@
 package com.pwc.dataflow.example.normalizedItem.account;
 
 import com.google.api.services.bigquery.model.TableFieldSchema;
+import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.gcp.options.GcpOptions;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
+import org.apache.beam.sdk.io.gcp.bigquery.DynamicDestinations;
+import org.apache.beam.sdk.io.gcp.bigquery.TableDestination;
 import org.apache.beam.sdk.io.gcp.datastore.DatastoreIO;
 import org.apache.beam.sdk.options.*;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.CreateDisposition;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.WriteDisposition;
+import org.apache.beam.sdk.options.ValueProvider.NestedValueProvider;
+import org.apache.beam.sdk.transforms.SerializableFunction;
+import org.apache.beam.sdk.values.ValueInSingleWindow;
+import org.apache.beam.vendor.guava.v20_0.com.google.common.collect.ImmutableList;
 
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * Dataflow template which copies Datastore Entities to a BigQuery table.
@@ -66,30 +80,28 @@ public class DatastoreToBigQuery {
                 .as(DatastoreToBigQueryOptions.class);
 
         // Build the table schema for the output table.
-        List<TableFieldSchema> fields = new ArrayList<TableFieldSchema>();
-        fields.add(new TableFieldSchema().setName("create_time").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("provider").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("updated_at").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("item_type").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("endpoint_id").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("endpoint_type").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("exclude_from_indexes").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("changeset").setType("STRING"));
-
-        fields.add(new TableFieldSchema().setName("data_id").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("data_orgId").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("data_createdAt").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("data_updatedAt").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("data_name").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("data_currency").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("data_supplier").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("data_customer").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("data_employee").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("data_emails").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("data_addresses").setType("STRING"));
-        fields.add(new TableFieldSchema().setName("data_phoneNumbers").setType("STRING"));
-
-        TableSchema schema = new TableSchema().setFields(fields);
+//        List<TableFieldSchema> fields = new ArrayList<TableFieldSchema>();
+//        fields.add(new TableFieldSchema().setName("create_time").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("org_uid").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("addresses").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("item_type").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("endpoint_id").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("employee").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("orgId").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("phoneNumbers").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("changeset").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("emails").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("createdAt").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("endpoint_type").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("updated_at").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("provider").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("supplier").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("name").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("currency").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("id").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("updatedAt").setType("STRING"));
+//        fields.add(new TableFieldSchema().setName("customer").setType("STRING"));
+//        TableSchema schema = new TableSchema().setFields(fields);
 
         Pipeline pipeline = Pipeline.create(options);
 
@@ -98,22 +110,40 @@ public class DatastoreToBigQuery {
                         "ReadFromDatastore",
                         DatastoreIO.v1().read()
                                 .withProjectId(options.as(GcpOptions.class).getProject())
-                                .withLiteralGqlQuery("select * from NormalizedItem where endpoint_id = '2c92c0f86e01684a016e10ec3b2a7e84' "))
+                                .withLiteralGqlQuery("select * from NormalizedItem where endpoint_id = '2c92c0f86e01684a016e10ec3b2a7e84' and changeset = -1"))
                 .apply("EntityToString", ParDo.of(new EntityToString()))
-
-                //.apply("EntityToJson", ParDo.of(new DatastoreConverters.EntityToJson()))
-
                 .apply("ConvertJsonStringToTableRow",ParDo.of(new JasonStringToTableRow()))
                 .apply(
                         "WriteBigQuery",
                         BigQueryIO.writeTableRows()
-                                .withSchema(schema)
-                                .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED)
-                                .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
+
+                                .withSchema(getSchema())
+
+                                .withCreateDisposition(CreateDisposition.CREATE_IF_NEEDED)
+                                .withWriteDisposition(WriteDisposition.WRITE_APPEND)
                                 .to(options.getOutputTableSpec()));
 
-
         pipeline.run();
+    }
+
+    public static TableSchema getSchema(){
+        List<TableFieldSchema> fields = new ArrayList<TableFieldSchema>();
+        Properties prop = new Properties();
+        try{
+            InputStream in = new BufferedInputStream(new FileInputStream("schema.properties"));
+            prop.load(in);
+            Iterator<String> it=prop.stringPropertyNames().iterator();
+            while(it.hasNext()){
+                String key=it.next();
+                System.out.println("=====================: "+key+":"+prop.getProperty(key));
+                fields.add(new TableFieldSchema().setName(key).setType("STRING"));
+            }
+            in.close();
+        }catch(Exception e){
+            System.out.println(e);
+        }
+        TableSchema schema = new TableSchema().setFields(fields);
+        return schema;
     }
 
     public interface DatastoreReadOptions extends PipelineOptions {
